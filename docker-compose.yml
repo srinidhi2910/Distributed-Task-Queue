@@ -1,0 +1,91 @@
+version: "3.9"
+
+services:
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: tq-redis
+    ports:
+      - "6380:6379"   # host:container — use 6380 on host so it doesn't
+                      # conflict with your locally installed Redis on 6379
+    volumes:
+      - redis_data:/data   # persist Redis data across container restarts
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: tq-postgres
+    ports:
+      - "5433:5432"   # use 5433 on host to avoid conflict with local Postgres
+    environment:
+      POSTGRES_DB:       taskqueue_docker
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── API Server ─────────────────────────────────────────────────────────────
+  api:
+    build: .                        # build from our Dockerfile
+    container_name: tq-api
+    command: node src/index.js
+    ports:
+      - "3001:3000"   # API available at localhost:3001 when running in Docker
+    environment:
+      NODE_ENV:          production
+      PORT:              3000
+      REDIS_HOST:        redis       # container name = hostname inside Docker network
+      REDIS_PORT:        6379
+      PG_HOST:           postgres
+      PG_PORT:           5432
+      PG_DATABASE:       taskqueue_docker
+      PG_USER:           postgres
+      PG_PASSWORD:       postgres
+      QUEUE_NAME:        task_queue
+      MAX_RETRIES:       3
+      WORKER_CONCURRENCY: 5
+    depends_on:
+      redis:
+        condition: service_healthy   # wait for Redis healthcheck to pass
+      postgres:
+        condition: service_healthy   # wait for Postgres healthcheck to pass
+    restart: unless-stopped
+
+  # ── Worker Pool ────────────────────────────────────────────────────────────
+  worker:
+    build: .                        # same image as API — different command
+    container_name: tq-worker
+    command: node src/workers/workerManager.js
+    environment:
+      NODE_ENV:          production
+      REDIS_HOST:        redis
+      REDIS_PORT:        6379
+      PG_HOST:           postgres
+      PG_PORT:           5432
+      PG_DATABASE:       taskqueue_docker
+      PG_USER:           postgres
+      PG_PASSWORD:       postgres
+      QUEUE_NAME:        task_queue
+      MAX_RETRIES:       3
+      WORKER_CONCURRENCY: 5
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:

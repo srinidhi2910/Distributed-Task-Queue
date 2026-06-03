@@ -91,7 +91,8 @@ A production-grade distributed task queue built from scratch using raw Redis pri
 
 ## Load Test Results
 
-Tested on Windows 11, Node.js v22, Redis 3, PostgreSQL 15 — 5 concurrent workers:
+Tested on Windows 11, Node.js v22, Redis 3, and PostgreSQL 15 using 5 concurrent workers.
+
 • Total jobs processed : 500  
 • Successfully completed : 484 (96.8% success rate)  
 • Failed / dead-lettered : 16 (expected due to simulated 10% SMTP failure rate)  

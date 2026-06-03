@@ -10,43 +10,48 @@ A production-grade distributed task queue built from scratch using raw Redis pri
 ---
 
 ## Architecture
+
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Producer (API)                           │
-│              POST /api/jobs → enqueue()                         │
+│              POST /api/jobs → enqueue()                        │
 └───────────────────────────┬─────────────────────────────────────┘
-│
-┌─────────────▼──────────────┐
-│         Redis              │
-│  tq:queue        (FIFO)    │
-│  tq:priority     (ZADD)    │
-│  tq:delayed      (ZADD)    │
-│  tq:dlq          (LPUSH)   │
-└─────────────┬──────────────┘
-│  BRPOP / ZRANGE
-┌─────────────▼──────────────┐
-│       Worker Pool          │
-│   worker-1  worker-2       │
-│   worker-3  worker-4       │
-│   worker-5                 │
-│                            │
-│  • Retry + backoff         │
-│  • Dead-letter queue       │
-│  • Graceful shutdown       │
-└─────────────┬──────────────┘
-│
-┌─────────────▼──────────────┐
-│        PostgreSQL          │
-│   jobs table               │
-│   Full audit trail         │
-│   Status lifecycle         │
-└────────────────────────────┘
-│
-┌─────────────▼──────────────┐
-│     React Dashboard        │
-│   Live stats via SSE       │
-│   Job table + filters      │
-│   Enqueue form             │
-└────────────────────────────┘
+                            │
+                ┌───────────▼───────────┐
+                │        Redis          │
+                │ tq:queue    (FIFO)    │
+                │ tq:priority (ZADD)    │
+                │ tq:delayed  (ZADD)    │
+                │ tq:dlq      (LPUSH)   │
+                └───────────┬───────────┘
+                            │
+                     BRPOP / ZRANGE
+                            │
+                ┌───────────▼───────────┐
+                │      Worker Pool      │
+                │ worker-1  worker-2    │
+                │ worker-3  worker-4    │
+                │ worker-5              │
+                │                       │
+                │ • Retry + backoff     │
+                │ • Dead-letter queue   │
+                │ • Graceful shutdown   │
+                └───────────┬───────────┘
+                            │
+                ┌───────────▼───────────┐
+                │      PostgreSQL       │
+                │ jobs table            │
+                │ Full audit trail      │
+                │ Status lifecycle      │
+                └───────────┬───────────┘
+                            │
+                ┌───────────▼───────────┐
+                │    React Dashboard    │
+                │ Live stats via SSE    │
+                │ Job table + filters   │
+                │ Enqueue form          │
+                └───────────────────────┘
+```
 
 ---
 
@@ -87,9 +92,9 @@ A production-grade distributed task queue built from scratch using raw Redis pri
 ## Load Test Results
 
 Tested on Windows 11, Node.js v22, Redis 3, PostgreSQL 15 — 5 concurrent workers:
-Total jobs         : 500
-Completed          : 484   (96.8% success rate)
-Failed/Dead        : 16    (expected — 10% simulated SMTP failure rate)
-Total time         : 7.39s
-Worker throughput  : 68 jobs/sec
-Enqueue throughput : 1048 jobs/sec
+-Total jobs         : 500
+-Completed          : 484   (96.8% success rate)
+-Failed/Dead        : 16    (expected — 10% simulated SMTP failure rate)
+-Total time         : 7.39s
+-Worker throughput  : 68 jobs/sec
+-Enqueue throughput : 1048 jobs/sec
